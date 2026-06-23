@@ -584,14 +584,21 @@ async function refreshAll(){
 
 async function verifyContracts(){
   const zone = $('verifyZone'); zone.innerHTML = '';
+  const iface = new ethers.Interface([
+    "function token() view returns (address)",
+    "function alfp() view returns (address)",
+    "function alfpayToken() view returns (address)"
+  ]);
   const checks = [
-    ['Staking', cStake.token, ADDR.staking],
-    ['NFT', cNft.alfp, ADDR.nft],
-    ['Pay', cPay.alfpayToken, ADDR.pay]
+    ['Staking', ADDR.staking, 'token'],
+    ['NFT',     ADDR.nft,    'alfp'],
+    ['Pay',     ADDR.pay,    'alfpayToken']
   ];
-  for (const [label, fn] of checks){
+  for (const [label, to, fn] of checks){
     try{
-      const linked = (await fn()).toLowerCase();
+      const data = iface.encodeFunctionData(fn);
+      const raw  = await provider.call({ to, data });
+      const linked = iface.decodeFunctionResult(fn, raw)[0].toLowerCase();
       const ok = linked === ADDR.token.toLowerCase();
       addStamp(zone, `${label} ${ok ? 'IMETHIBITISHWA' : 'HAILINGANI'}`, ok ? 'ok' : 'err');
     }catch(e){
