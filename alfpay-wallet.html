@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALFPAY · Ledger</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --ink:#10142a;
+  --ink-2:#161b38;
+  --ink-3:#212752;
+  --paper:#ece4d3;
+  --paper-ink:#211b12;
+  --gold:#c9a227;
+  --gold-soft:#e3c468;
+  --burn:#b5483d;
+  --sage:#74a07a;
+  --text:#ece8dd;
+  --text-dim:#9aa0c2;
+  --border:rgba(236,228,211,0.13);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(ellipse at top, #1a2050 0%, var(--ink) 55%);
+  color:var(--text);
+  font-family:'IBM Plex Sans',sans-serif;
+  min-height:100vh;
+  padding:28px 16px 60px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:480px;margin:0 auto;}
+
+/* header */
+.brandrow{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;}
+.brand{font-family:'Fraunces',serif;font-weight:700;font-size:28px;letter-spacing:0.01em;}
+.brand span{color:var(--gold-soft);}
+.netpill{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;
+  color:var(--sage);border:1px solid var(--sage);border-radius:999px;
+  padding:4px 10px;text-transform:uppercase;display:flex;align-items:center;gap:6px;
+}
+.netpill .dot{width:6px;height:6px;border-radius:50%;background:var(--sage);box-shadow:0 0 6px var(--sage);}
+
+/* passbook card */
+.passbook{
+  background:linear-gradient(180deg,var(--paper) 0%,#e4dabd 100%);
+  color:var(--paper-ink);
+  border-radius:14px;
+  padding:22px 22px 18px;
+  box-shadow:0 18px 40px -16px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.05);
+  position:relative;
+  overflow:hidden;
+  animation:riseIn .55s cubic-bezier(.2,.8,.2,1) both;
+}
+.passbook::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:6px;
+  background:repeating-linear-gradient(180deg, var(--gold) 0 8px, transparent 8px 14px);
+}
+@keyframes riseIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.pb-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;opacity:.55;margin-bottom:4px;}
+.pb-addr{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500;word-break:break-all;}
+.pb-balrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;}
+.pb-bal{font-family:'Fraunces',serif;font-size:32px;font-weight:600;line-height:1;}
+.pb-symbol{font-size:14px;opacity:.6;font-weight:500;margin-left:6px;}
+.pb-bnb{font-family:'IBM Plex Mono',monospace;font-size:12px;opacity:.65;text-align:right;}
+.perf{
+  height:0;border-top:2px dashed rgba(0,0,0,.18);margin:16px -22px 0;position:relative;
+}
+.perf::before,.perf::after{
+  content:'';position:absolute;top:-7px;width:14px;height:14px;border-radius:50%;
+  background:var(--ink);
+}
+.perf::before{left:-7px;}
+.perf::after{right:-7px;}
+
+.btn{
+  font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13px;letter-spacing:.02em;
+  border:none;border-radius:9px;padding:12px 16px;cursor:pointer;width:100%;
+  transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn:active{transform:scale(.98);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-gold{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#241c04;}
+.btn-gold:hover{filter:brightness(1.06);}
+.btn-ghost{background:rgba(236,228,211,.08);color:var(--text);border:1px solid var(--border);}
+.btn-ghost:hover{background:rgba(236,228,211,.13);}
+.btn-burn{background:rgba(181,72,61,.16);color:#f0a79c;border:1px solid rgba(181,72,61,.5);}
+.btn-row{display:flex;gap:8px;margin-top:18px;}
+
+/* tabs */
+.tabs{display:flex;gap:6px;margin:22px 0 14px;background:var(--ink-2);padding:5px;border-radius:11px;border:1px solid var(--border);}
+.tab{flex:1;text-align:center;padding:9px 4px;border-radius:8px;font-size:12.5px;font-weight:600;letter-spacing:.01em;cursor:pointer;color:var(--text-dim);user-select:none;}
+.tab.active{background:var(--ink-3);color:var(--gold-soft);}
+
+.panel{display:none;animation:fadeUp .3s ease both;}
+.panel.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+.card{
+  background:var(--ink-2);border:1px solid var(--border);border-radius:13px;
+  padding:18px;margin-bottom:14px;
+}
+.card h3{
+  font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0 0 12px;
+  color:var(--text);
+}
+.row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px solid var(--border);}
+.row:last-child{border-bottom:none;}
+.row .k{color:var(--text-dim);}
+.row .v{font-family:'IBM Plex Mono',monospace;font-weight:500;}
+
+label{display:block;font-size:11.5px;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;margin:12px 0 6px;}
+label:first-child{margin-top:0;}
+input{
+  width:100%;background:var(--ink);border:1px solid var(--border);border-radius:9px;
+  padding:11px 12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13.5px;
+  outline:none;
+}
+input:focus{border-color:var(--gold);}
+.hint{font-size:11px;color:var(--text-dim);margin-top:5px;line-height:1.5;}
+
+/* stamps */
+.stamp{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  padding:5px 12px;border-radius:999px;border:1.5px solid currentColor;position:relative;
+  font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  transform:rotate(-3deg);animation:stampIn .25s cubic-bezier(.3,1.4,.5,1) both;
+}
+.stamp::after{content:'';position:absolute;inset:-3px;border:1px dashed currentColor;border-radius:999px;opacity:.45;}
+@keyframes stampIn{from{opacity:0;transform:rotate(-3deg) scale(.75);}to{opacity:1;transform:rotate(-3deg) scale(1);}}
+.stamp.ok{color:var(--sage);}
+.stamp.warn{color:var(--gold);}
+.stamp.err{color:var(--burn);}
+
+.stampzone{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+
+/* log */
+.logfeed{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;}
+.logitem{font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--text-dim);border-left:2px solid var(--border);padding-left:10px;}
+.logitem a{color:var(--gold-soft);text-decoration:none;}
+.logitem.ok{border-color:var(--sage);}
+.logitem.err{border-color:var(--burn);}
+
+.empty{color:var(--text-dim);font-size:12.5px;text-align:center;padding:14px 0;}
+.banner{
+  font-size:11.5px;line-height:1.6;color:var(--text-dim);background:var(--ink-2);
+  border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:18px;
+}
+.banner b{color:var(--gold-soft);}
+.toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  background:var(--ink-3);border:1px solid var(--border);color:var(--text);
+  padding:11px 18px;border-radius:10px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;z-index:50;max-width:90%;text-align:center;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brandrow">
+    <div class="brand">ALF<span>PAY</span></div>
+    <div class="netpill"><span class="dot"></span>BSC</div>
+  </div>
+
+  <div class="banner">
+    Hii ni interface iliyojengwa kutoka kwa ABI ulizotoa. <b>Thibitisha anwani za mikataba</b> kwenye BscScan kabla ya kutuma fedha za kweli — si ushauri wa kifedha.
+  </div>
+
+  <div class="passbook">
+    <div class="pb-label">Akaunti Iliyounganishwa</div>
+    <div class="pb-addr" id="pbAddr">Hakuna wallet — bonyeza unganisha</div>
+    <div class="pb-balrow">
+      <div><span class="pb-bal" id="pbBal">0.00</span><span class="pb-symbol">ALFP</span></div>
+      <div class="pb-bnb" id="pbBnb">0.0000 BNB (gesi)</div>
+    </div>
+    <div class="perf"></div>
+    <div style="padding-top:16px;">
+      <button class="btn btn-gold" id="connectBtn">Unganisha Wallet</button>
+      <div class="hint" id="noWalletHint" style="display:none;">Hujafungua hii ukurasa ndani ya programu ya wallet. Bonyeza chini kufungua huko moja kwa moja:</div>
+      <div class="btn-row" id="deepLinkRow" style="display:none;">
+        <button class="btn btn-ghost" id="mmDeepLink">Fungua MetaMask</button>
+        <button class="btn btn-ghost" id="twDeepLink">Fungua Trust Wallet</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="akaunti">Akaunti</div>
+    <div class="tab" data-tab="staking">Staking</div>
+    <div class="tab" data-tab="nft">NFT</div>
+    <div class="tab" data-tab="lipa">Lipa</div>
+    <div class="tab" data-tab="rejea">Rejea</div>
+  </div>
+
+  <!-- AKAUNTI -->
+  <div class="panel active" id="panel-akaunti">
+    <div class="card">
+      <h3>Uthibitisho wa Mikataba</h3>
+      <div class="hint" style="margin-bottom:10px;">Tunalinganisha anwani ya $ALFP iliyosajiliwa ndani ya kila mkataba na anwani halisi ya token, kuepuka makosa ya anwani.</div>
+      <div class="stampzone" id="verifyZone">
+        <span class="empty">Unganisha wallet ili kuthibitisha</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Maelezo ya Mikataba</h3>
+      <div class="row"><span class="k">$ALFP Token</span><span class="v" id="addrToken">0xbED7…58E3</span></div>
+      <div class="row"><span class="k">Staking</span><span class="v" id="addrStake">0x8663…1732</span></div>
+      <div class="row"><span class="k">NFT</span><span class="v" id="addrNft">0x0291…4D7e</span></div>
+      <div class="row"><span class="k">Malipo (Pay)</span><span class="v" id="addrPay">0x24f9…84f0</span></div>
+    </div>
+    <div class="card">
+      <h3>Kumbukumbu</h3>
+      <div class="logfeed" id="logFeed"><div class="empty">Hakuna shughuli bado</div></div>
+    </div>
+  </div>
+
+  <!-- STAKING -->
+  <div class="panel" id="panel-staking">
+    <div class="card">
+      <h3>Ledger ya Staking</h3>
+      <div class="row"><span class="k">Kiasi Kilichowekwa</span><span class="v" id="stStaked">—</span></div>
+      <div class="row"><span class="k">APR</span><span class="v" id="stApr">—</span></div>
+      <div class="row"><span class="k">Malipo Yanayosubiri</span><span class="v" id="stPending">—</span></div>
+      <div class="row"><span class="k">Mapato ya Rejea</span><span class="v" id="stRefRewards">—</span></div>
+    </div>
+    <div class="card">
+      <h3>Weka Stake</h3>
+      <label>Kiasi (ALFP)</label>
+      <input id="stakeAmt" type="number" min="0" placeholder="0.00">
+      <label>Anwani ya Rejea (hiari)</label>
+      <input id="stakeRef" type="text" placeholder="0x… (acha wazi ukikosa)">
+      <div class="btn-row">
+        <button class="btn btn-gold" id="stakeBtn">Weka Stake</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Toa / Dai</h3>
+      <label>Kiasi cha Kutoa (ALFP)</label>
+      <input id="withdrawAmt" type="number" min="0" placeholder="0.00">
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="withdrawBtn">Toa</button>
+        <button class="btn btn-ghost" id="claimBtn">Dai Malipo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NFT -->
+  <div class="panel" id="panel-nft">
+    <div class="card">
+      <h3>Stempu ya NFT</h3>
+      <div class="row"><span class="k">Bei ya Mint</span><span class="v" id="nftPrice">—</span></div>
+      <div class="row"><span class="k">Kiasi Kinachoteketezwa</span><span class="v" id="nftBurn">—</span></div>
+      <div class="row"><span class="k">NFT Ulizo Nazo</span><span class="v" id="nftBal">—</span></div>
+    </div>
+    <div class="card">
+      <h3>Chapa NFT Mpya</h3>
+      <label>URI ya Metadata</label>
+      <input id="mintUri" type="text" placeholder="ipfs://… au https://…">
+      <div class="hint">Hatua mbili: kwanza idhinisha $ALFP, kisha chapa. Bei inatozwa kutoka salio lako.</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="approveMintBtn">1. Idhinisha $ALFP</button>
+        <button class="btn btn-gold" id="mintBtn">2. Chapa NFT</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Nunua NFT Iliyopo</h3>
+      <label>Token ID</label>
+      <input id="buyTokenId" type="number" min="0" placeholder="mfano: 12">
+      <label>Idhinisha Kiasi (ALFP)</label>
+      <input id="buyApproveAmt" type="number" min="0" placeholder="kiasi cha juu unachoruhusu">
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="approveBuyBtn">1. Idhinisha</button>
+        <button class="btn btn-gold" id="buyBtn">2. Nunua</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIPA -->
+  <div class="panel" id="panel-lipa">
+    <div class="card">
+      <h3>Lipa Mfanyabiashara</h3>
+      <label>Invoice ID</label>
+      <input id="payInvoice" type="text" placeholder="mfano: INV-2026-001">
+      <label>Anwani ya Mfanyabiashara</label>
+      <input id="payShop" type="text" placeholder="0x…">
+      <label>Kiasi (ALFP)</label>
+      <input id="payAmt" type="number" min="0" placeholder="0.00">
+      <div class="stampzone" id="payCheckZone"></div>
+      <div class="hint">Ada: <span id="feeInfo">…</span></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="approvePayBtn">1. Idhinisha $ALFP</button>
+        <button class="btn btn-gold" id="payBtn">2. Lipa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REJEA -->
+  <div class="panel" id="panel-rejea">
+    <div class="card">
+      <h3>Kiungo Chako cha Rejea</h3>
+      <div class="hint" style="margin-bottom:8px;">Shiriki kiungo hiki. Yeyote atakayeweka stake akiwa amefika kupitia kiungo chako atakuwekwa kama ulivyomwajiri — unapata sehemu ya zawadi kulingana na Kiwango cha Rejea.</div>
+      <input id="refLink" type="text" readonly placeholder="Unganisha wallet kupata kiungo chako">
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="refCopyBtn">Nakili Kiungo</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Takwimu za Rejea</h3>
+      <div class="row"><span class="k">Aliyekuajiri</span><span class="v" id="refWho">—</span></div>
+      <div class="row"><span class="k">Kiwango cha Rejea</span><span class="v" id="refRateVal">—</span></div>
+      <div class="row"><span class="k">Mapato ya Rejea (Jumla)</span><span class="v" id="refRewardsVal">—</span></div>
+      <div class="stampzone" id="refDetectZone"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ADDR = {
+  token: '0xbed72920ae8ad9e20d1bfbdaef11d5ebc3c358e3',
+  staking: '0x86632af9a90dd26ad8d3a5e9bf71c59ab6101732',
+  nft: '0x0291a26c657480c478911910497057c0816e4d7e',
+  pay: '0x24f937cb79931556e6cf8d2901fe2dbb0c0d84f0'
+};
+
+const TOKEN_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address,address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)"
+];
+const STAKING_ABI = [
+  "function stake(uint256 amount, address referrer)",
+  "function withdraw(uint256 amount)",
+  "function claim()",
+  "function pending(address user) view returns (uint256)",
+  "function users(address) view returns (uint256 staked, uint256 lastTime, uint256 rewards)",
+  "function apr() view returns (uint256)",
+  "function referralRewards(address) view returns (uint256)",
+  "function token() view returns (address)"
+];
+const NFT_ABI = [
+  "function mint(string uri)",
+  "function buyNFT(uint256 tokenId)",
+  "function mintPrice() view returns (uint256)",
+  "function burnAmount() view returns (uint256)",
+  "function alfp() view returns (address)",
+  "function balanceOf(address) view returns (uint256)"
+];
+const PAY_ABI = [
+  "function pay(string invoiceId, address shop, uint256 amount)",
+  "function merchants(address) view returns (bool)",
+  "function processedInvoices(string) view returns (bool)",
+  "function burnFee() view returns (uint256)",
+  "function ownerFee() view returns (uint256)",
+  "function alfpayToken() view returns (address)"
+];
+
+const BSC = {
+  chainId: '0x38',
+  chainName: 'BNB Smart Chain',
+  nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+  rpcUrls: ['https://bsc-dataseed.binance.org/'],
+  blockExplorerUrls: ['https://bscscan.com']
+};
+
+let provider, signer, userAddr, decimals = 18;
+let cToken, cStake, cNft, cPay;
+
+const $ = id => document.getElementById(id);
+const short = a => a ? a.slice(0,6)+'…'+a.slice(-4) : '';
+const fmt = (bn, d=decimals, frac=4) => {
+  try { return Number(ethers.formatUnits(bn, d)).toLocaleString('en-US',{maximumFractionDigits:frac}); }
+  catch(e){ return '0'; }
+};
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._h); toast._h = setTimeout(()=>t.classList.remove('show'), 3200);
+}
+function stamp(container, text, kind){
+  const el = document.createElement('span');
+  el.className = 'stamp '+kind;
+  el.textContent = text;
+  container.innerHTML = '';
+  container.appendChild(el);
+}
+function addStamp(container, text, kind){
+  const el = document.createElement('span');
+  el.className = 'stamp '+kind;
+  el.textContent = text;
+  container.appendChild(el);
+}
+function log(msg, kind, hash){
+  const feed = $('logFeed');
+  if (feed.querySelector('.empty')) feed.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'logitem '+(kind||'');
+  const time = new Date().toLocaleTimeString('sw-TZ',{hour:'2-digit',minute:'2-digit'});
+  div.innerHTML = `${time} — ${msg}` + (hash ? ` · <a href="https://bscscan.com/tx/${hash}" target="_blank">tazama</a>` : '');
+  feed.prepend(div);
+}
+
+// ---- tabs ----
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    $('panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+[['addrToken',ADDR.token],['addrStake',ADDR.staking],['addrNft',ADDR.nft],['addrPay',ADDR.pay]]
+  .forEach(([id,a])=>{ $(id).textContent = short(a); });
+
+// ---- referral link detection (works even before wallet connects) ----
+(function detectReferral(){
+  const urlParams = new URLSearchParams(window.location.search);
+  const refFromUrl = urlParams.get('ref');
+  if (!refFromUrl) return;
+  try{
+    const clean = ethers.getAddress(refFromUrl.trim());
+    $('stakeRef').value = clean;
+    addStamp($('refDetectZone'), 'REJEA: '+short(clean), 'ok');
+  }catch(e){
+    addStamp($('refDetectZone'), 'KIUNGO SI SAHIHI', 'err');
+  }
+})();
+
+// ---- no injected wallet? offer deep links into MetaMask / Trust Wallet ----
+if (!window.ethereum){
+  $('noWalletHint').style.display = 'block';
+  $('deepLinkRow').style.display = 'flex';
+  $('connectBtn').textContent = 'Wallet Haijagunduliwa';
+  $('connectBtn').disabled = true;
+}
+$('mmDeepLink').addEventListener('click', ()=>{
+  const bare = window.location.host + window.location.pathname + window.location.search;
+  window.location.href = 'https://metamask.app.link/dapp/' + bare;
+});
+$('twDeepLink').addEventListener('click', ()=>{
+  window.location.href = 'https://link.trustwallet.com/open_url?coin_id=20000714&url=' + encodeURIComponent(window.location.href);
+});
+
+// ---- connect ----
+async function connectWallet(){
+  if (!window.ethereum){
+    toast('Hakuna wallet iliyogunduliwa. Fungua ukurasa huu ndani ya MetaMask au Trust Wallet.');
+    return;
+  }
+  try{
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+    await ensureBsc();
+    signer = await provider.getSigner();
+    userAddr = await signer.getAddress();
+
+    cToken = new ethers.Contract(ADDR.token, TOKEN_ABI, signer);
+    cStake = new ethers.Contract(ADDR.staking, STAKING_ABI, signer);
+    cNft   = new ethers.Contract(ADDR.nft, NFT_ABI, signer);
+    cPay   = new ethers.Contract(ADDR.pay, PAY_ABI, signer);
+
+    try { decimals = Number(await cToken.decimals()); } catch(e){ decimals = 18; }
+
+    $('pbAddr').textContent = short(userAddr);
+    $('connectBtn').textContent = 'Imeunganishwa ✓';
+    $('connectBtn').disabled = true;
+
+    await refreshAll();
+    await verifyContracts();
+    log('Wallet imeunganishwa: '+short(userAddr), 'ok');
+  }catch(err){
+    console.error(err);
+    toast(err.shortMessage || err.message || 'Imeshindikana kuunganisha');
+  }
+}
+
+async function ensureBsc(){
+  try{
+    await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{chainId: BSC.chainId}] });
+  }catch(switchErr){
+    if (switchErr.code === 4902){
+      await window.ethereum.request({ method:'wallet_addEthereumChain', params:[BSC] });
+    } else { throw switchErr; }
+  }
+}
+
+async function refreshAll(){
+  if (!userAddr) return;
+  const [bal, bnbBal] = await Promise.all([
+    cToken.balanceOf(userAddr),
+    provider.getBalance(userAddr)
+  ]);
+  $('pbBal').textContent = fmt(bal, decimals, 2);
+  $('pbBnb').textContent = fmt(bnbBal, 18, 4) + ' BNB (gesi)';
+
+  try{
+    const [u, pend, apr, refR] = await Promise.all([
+      cStake.users(userAddr), cStake.pending(userAddr), cStake.apr(), cStake.referralRewards(userAddr)
+    ]);
+    $('stStaked').textContent = fmt(u.staked, decimals, 2) + ' ALFP';
+    $('stPending').textContent = fmt(pend, decimals, 4) + ' ALFP';
+    $('stApr').textContent = apr.toString() + '%';
+    $('stRefRewards').textContent = fmt(refR, decimals, 4) + ' ALFP';
+  }catch(e){ console.warn('staking read', e); }
+
+  $('refLink').value = window.location.origin + window.location.pathname + '?ref=' + userAddr;
+  try{
+    const [whoRef, rRate, rRewards] = await Promise.all([
+      cStake.ref(userAddr), cStake.refRate(), cStake.referralRewards(userAddr)
+    ]);
+    const isZero = whoRef.toLowerCase() === ethers.ZeroAddress.toLowerCase();
+    $('refWho').textContent = isZero ? 'Hakuna (umejisajili moja kwa moja)' : short(whoRef);
+    $('refRateVal').textContent = rRate.toString() + '%';
+    $('refRewardsVal').textContent = fmt(rRewards, decimals, 4) + ' ALFP';
+  }catch(e){ console.warn('referral read', e); }
+
+  try{
+    const [price, burnAmt, nftBal] = await Promise.all([
+      cNft.mintPrice(), cNft.burnAmount(), cNft.balanceOf(userAddr)
+    ]);
+    $('nftPrice').textContent = fmt(price, decimals, 2) + ' ALFP';
+    $('nftBurn').textContent = fmt(burnAmt, decimals, 2) + ' ALFP';
+    $('nftBal').textContent = nftBal.toString();
+  }catch(e){ console.warn('nft read', e); }
+
+  try{
+    const [bf, of] = await Promise.all([cPay.burnFee(), cPay.ownerFee()]);
+    $('feeInfo').textContent = `${bf}% inateketezwa, ${of}% ada ya mfumo, salio kwa mfanyabiashara`;
+  }catch(e){ console.warn('pay read', e); }
+}
+
+async function verifyContracts(){
+  const zone = $('verifyZone'); zone.innerHTML = '';
+  const checks = [
+    ['Staking', cStake.token, ADDR.staking],
+    ['NFT', cNft.alfp, ADDR.nft],
+    ['Pay', cPay.alfpayToken, ADDR.pay]
+  ];
+  for (const [label, fn] of checks){
+    try{
+      const linked = (await fn()).toLowerCase();
+      const ok = linked === ADDR.token.toLowerCase();
+      addStamp(zone, `${label} ${ok ? 'IMETHIBITISHWA' : 'HAILINGANI'}`, ok ? 'ok' : 'err');
+    }catch(e){
+      addStamp(zone, label+' HAIJULIKANI', 'warn');
+    }
+  }
+}
+
+async function approveIfNeeded(spender, amountWei, contractLabel){
+  const allowance = await cToken.allowance(userAddr, spender);
+  if (allowance >= amountWei) return true;
+  toast('Inaidhinisha $ALFP kwa '+contractLabel+'…');
+  const tx = await cToken.approve(spender, amountWei);
+  log('Idhinisho limetumwa kwa '+contractLabel+'…', '', tx.hash);
+  await tx.wait();
+  log('Idhinisho limethibitishwa: '+contractLabel, 'ok', tx.hash);
+  return true;
+}
+
+async function runTx(btn, label, fn){
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Inasubiri…';
+  try{
+    const tx = await fn();
+    log(label+' imetumwa…', '', tx.hash);
+    toast('Muamala umetumwa, inasubiri uthibitisho…');
+    const receipt = await tx.wait();
+    log(label+' imekamilika ✓', 'ok', tx.hash);
+    toast(label+' imefanikiwa');
+    await refreshAll();
+  }catch(err){
+    console.error(err);
+    const msg = err.reason || err.shortMessage || (err.info && err.info.error && err.info.error.message) || err.message || 'Muamala umeshindikana';
+    log(label+' imeshindikana: '+msg, 'err');
+    toast(msg);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function need(addrField){
+  const v = (addrField||'').trim();
+  return v;
+}
+
+// ---- staking actions ----
+$('stakeBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const amtStr = $('stakeAmt').value;
+  if (!amtStr || Number(amtStr) <= 0) return toast('Weka kiasi sahihi');
+  const amount = ethers.parseUnits(amtStr, decimals);
+  let refAddr = $('stakeRef').value.trim();
+  if (!refAddr) refAddr = ethers.ZeroAddress;
+  await approveIfNeeded(ADDR.staking, amount, 'Staking');
+  await runTx($('stakeBtn'), 'Stake', ()=>cStake.stake(amount, refAddr));
+});
+$('withdrawBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const amtStr = $('withdrawAmt').value;
+  if (!amtStr || Number(amtStr) <= 0) return toast('Weka kiasi sahihi');
+  const amount = ethers.parseUnits(amtStr, decimals);
+  await runTx($('withdrawBtn'), 'Kutoa Stake', ()=>cStake.withdraw(amount));
+});
+$('claimBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  await runTx($('claimBtn'), 'Kudai Malipo', ()=>cStake.claim());
+});
+
+// ---- nft actions ----
+$('approveMintBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const price = await cNft.mintPrice();
+  await runTx($('approveMintBtn'), 'Idhinisho la Mint', ()=>cToken.approve(ADDR.nft, price));
+});
+$('mintBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const uri = $('mintUri').value.trim();
+  if (!uri) return toast('Weka URI ya metadata');
+  await runTx($('mintBtn'), 'Kuchapa NFT', ()=>cNft.mint(uri));
+});
+$('approveBuyBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const amtStr = $('buyApproveAmt').value;
+  if (!amtStr || Number(amtStr) <= 0) return toast('Weka kiasi cha kuidhinisha');
+  const amount = ethers.parseUnits(amtStr, decimals);
+  await runTx($('approveBuyBtn'), 'Idhinisho la Ununuzi', ()=>cToken.approve(ADDR.nft, amount));
+});
+$('buyBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const idStr = $('buyTokenId').value;
+  if (idStr === '') return toast('Weka Token ID');
+  await runTx($('buyBtn'), 'Ununuzi wa NFT', ()=>cNft.buyNFT(BigInt(idStr)));
+});
+
+// ---- pay actions ----
+$('payShop').addEventListener('blur', async ()=>{
+  if (!userAddr || !$('payShop').value.trim()) return;
+  const zone = $('payCheckZone'); zone.innerHTML = '';
+  try{
+    const ok = await cPay.merchants($('payShop').value.trim());
+    addStamp(zone, ok ? 'MFANYABIASHARA HALALI' : 'SI MFANYABIASHARA', ok ? 'ok' : 'err');
+  }catch(e){ addStamp(zone, 'ANWANI SI SAHIHI', 'err'); }
+});
+$('approvePayBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const amtStr = $('payAmt').value;
+  if (!amtStr || Number(amtStr) <= 0) return toast('Weka kiasi sahihi');
+  const amount = ethers.parseUnits(amtStr, decimals);
+  await runTx($('approvePayBtn'), 'Idhinisho la Malipo', ()=>cToken.approve(ADDR.pay, amount));
+});
+$('payBtn').addEventListener('click', async ()=>{
+  if (!userAddr) return toast('Unganisha wallet kwanza');
+  const invoiceId = $('payInvoice').value.trim();
+  const shop = $('payShop').value.trim();
+  const amtStr = $('payAmt').value;
+  if (!invoiceId || !shop || !amtStr || Number(amtStr) <= 0) return toast('Jaza taarifa zote za malipo');
+  try{
+    const used = await cPay.processedInvoices(invoiceId);
+    if (used) return toast('Invoice ID hii tayari imelipwa');
+  }catch(e){}
+  const amount = ethers.parseUnits(amtStr, decimals);
+  await runTx($('payBtn'), 'Malipo', ()=>cPay.pay(invoiceId, shop, amount));
+});
+
+$('connectBtn').addEventListener('click', connectWallet);
+
+$('refCopyBtn').addEventListener('click', async ()=>{
+  const val = $('refLink').value;
+  if (!val) return toast('Unganisha wallet kwanza kupata kiungo chako');
+  try{
+    await navigator.clipboard.writeText(val);
+    toast('Kiungo kimenakiliwa');
+  }catch(e){
+    $('refLink').removeAttribute('readonly');
+    $('refLink').select();
+    document.execCommand('copy');
+    $('refLink').setAttribute('readonly', 'true');
+    toast('Kiungo kimenakiliwa');
+  }
+});
+
+if (window.ethereum){
+  window.ethereum.on && window.ethereum.on('accountsChanged', ()=>window.location.reload());
+  window.ethereum.on && window.ethereum.on('chainChanged', ()=>window.location.reload());
+}
+</script>
+</body>
+</html>
