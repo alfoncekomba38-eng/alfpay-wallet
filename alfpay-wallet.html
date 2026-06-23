@@ -185,6 +185,7 @@ input:focus{border-color:var(--gold);}
     <div class="perf"></div>
     <div style="padding-top:16px;">
       <button class="btn btn-gold" id="connectBtn">Unganisha Wallet</button>
+      <button class="btn btn-ghost" id="switchBscBtn" style="margin-top:8px;font-size:12px;">Hakikisha Mtandao wa BSC</button>
       <div class="hint" id="noWalletHint" style="display:none;">Hujafungua hii ukurasa ndani ya programu ya wallet. Bonyeza chini kufungua huko moja kwa moja:</div>
       <div class="btn-row" id="deepLinkRow" style="display:none;">
         <button class="btn btn-ghost" id="mmDeepLink">Fungua MetaMask</button>
@@ -458,13 +459,37 @@ $('twDeepLink').addEventListener('click', ()=>{
 // ---- connect ----
 async function connectWallet(){
   if (!window.ethereum){
-    toast('Hakuna wallet iliyogunduliwa. Fungua ukurasa huu ndani ya MetaMask au Trust Wallet.');
+    $('noWalletHint').style.display = 'block';
+    $('deepLinkRow').style.display = 'flex';
     return;
   }
+
+  const btn = $('connectBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Inaunganisha…';
+
   try{
+    // Step 1 — request accounts directly (most compatible with MetaMask mobile)
+    let accounts;
+    try{
+      accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    }catch(e){
+      if (e.code === 4001){
+        toast('Umegoma ruhusa — jaribu tena na ukubali ndani ya MetaMask');
+        btn.disabled = false; btn.textContent = 'Unganisha Wallet'; return;
+      }
+      throw e;
+    }
+    if (!accounts || accounts.length === 0){
+      toast('Hakuna akaunti iliyopatikana kwenye MetaMask');
+      btn.disabled = false; btn.textContent = 'Unganisha Wallet'; return;
+    }
+
+    // Step 2 — switch/add BSC network (soft — don't abort if it fails)
+    try{ await ensureBsc(); }catch(e){ console.warn('BSC switch skipped:', e.message); }
+
+    // Step 3 — build provider and contracts
     provider = new ethers.BrowserProvider(window.ethereum);
-    await provider.send('eth_requestAccounts', []);
-    await ensureBsc();
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
 
@@ -475,16 +500,30 @@ async function connectWallet(){
 
     try { decimals = Number(await cToken.decimals()); } catch(e){ decimals = 18; }
 
+    // Step 4 — verify we are actually on BSC
+    const network = await provider.getNetwork();
+    if (network.chainId !== 56n){
+      toast('⚠️ Mtandao si BSC (nambari ya sasa: '+network.chainId+'). Badilisha kwenye BNB Smart Chain kwenye MetaMask, kisha jaribu tena.');
+      btn.disabled = false; btn.textContent = 'Unganisha Wallet'; return;
+    }
+
     $('pbAddr').textContent = short(userAddr);
-    $('connectBtn').textContent = 'Imeunganishwa ✓';
-    $('connectBtn').disabled = true;
+    btn.textContent = '✓ Imeunganishwa';
+    btn.style.background = 'linear-gradient(180deg,#85c48a,#4f9455)';
+    btn.style.color = '#fff';
 
     await refreshAll();
     await verifyContracts();
     log('Wallet imeunganishwa: '+short(userAddr), 'ok');
+    toast('Imeunganishwa kwa mafanikio ✓');
+
   }catch(err){
     console.error(err);
-    toast(err.shortMessage || err.message || 'Imeshindikana kuunganisha');
+    const msg = err.reason || err.shortMessage || (err.info && err.info.error && err.info.error.message) || err.message || 'Imeshindikana kuunganisha';
+    toast(msg);
+    log('Kushindwa kuunganisha: '+msg, 'err');
+    btn.disabled = false;
+    btn.textContent = 'Unganisha Wallet';
   }
 }
 
@@ -677,6 +716,16 @@ $('payBtn').addEventListener('click', async ()=>{
   }catch(e){}
   const amount = ethers.parseUnits(amtStr, decimals);
   await runTx($('payBtn'), 'Malipo', ()=>cPay.pay(invoiceId, shop, amount));
+});
+
+$('switchBscBtn').addEventListener('click', async ()=>{
+  if (!window.ethereum) return toast('Hakuna wallet iliyogunduliwa');
+  try{
+    await ensureBsc();
+    toast('Mtandao wa BSC umewashwa ✓');
+  }catch(e){
+    toast(e.message || 'Imeshindikana kubadili mtandao');
+  }
 });
 
 $('connectBtn').addEventListener('click', connectWallet);
