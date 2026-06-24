@@ -92,6 +92,47 @@ body{
 .btn-burn{background:rgba(181,72,61,.16);color:#f0a79c;border:1px solid rgba(181,72,61,.5);}
 .btn-row{display:flex;gap:8px;margin-top:18px;}
 
+/* action buttons */
+.action-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px;}
+.action-btn{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  background:rgba(236,228,211,.07);border:1px solid var(--border);border-radius:11px;
+  padding:12px 6px;cursor:pointer;color:var(--text);font-size:11px;font-weight:600;
+  letter-spacing:.03em;transition:background .15s ease, transform .12s ease;
+  font-family:'IBM Plex Sans',sans-serif;
+}
+.action-btn:hover{background:rgba(236,228,211,.13);}
+.action-btn:active{transform:scale(.96);}
+.action-icon{font-size:20px;line-height:1;}
+
+/* modal */
+.modal-bg{
+  display:none;position:fixed;inset:0;background:rgba(10,13,35,.75);
+  backdrop-filter:blur(4px);z-index:100;align-items:flex-end;justify-content:center;
+}
+.modal-bg.open{display:flex;}
+.modal{
+  background:var(--ink-2);border:1px solid var(--border);border-radius:18px 18px 0 0;
+  padding:24px 20px 36px;width:100%;max-width:480px;
+  animation:slideUp .28s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.modal-head h3{font-family:'Fraunces',serif;font-size:18px;font-weight:600;margin:0;}
+.modal-close{background:none;border:none;color:var(--text-dim);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;}
+.qr-box{
+  background:white;border-radius:12px;padding:12px;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+  width:190px;height:190px;overflow:hidden;
+}
+.qr-box canvas{width:166px!important;height:166px!important;}
+.addr-box{
+  font-family:'IBM Plex Mono',monospace;font-size:12px;word-break:break-all;
+  background:var(--ink);border:1px solid var(--border);border-radius:9px;
+  padding:12px;line-height:1.7;color:var(--text);text-align:center;
+}
+.swap-hint{font-size:12px;color:var(--text-dim);line-height:1.6;margin:12px 0 0;text-align:center;}
+
 /* tabs */
 .tabs{display:flex;gap:6px;margin:22px 0 14px;background:var(--ink-2);padding:5px;border-radius:11px;border:1px solid var(--border);}
 .tab{flex:1;text-align:center;padding:9px 4px;border-radius:8px;font-size:12.5px;font-weight:600;letter-spacing:.01em;cursor:pointer;color:var(--text-dim);user-select:none;}
@@ -192,6 +233,89 @@ input:focus{border-color:var(--gold);}
         <button class="btn btn-ghost" id="twDeepLink">Fungua Trust Wallet</button>
       </div>
     </div>
+
+    <!-- Action Buttons -->
+    <div class="action-btns" id="actionBtns" style="display:none;">
+      <button class="action-btn" id="btnSend">
+        <span class="action-icon">↑</span>Send
+      </button>
+      <button class="action-btn" id="btnReceive">
+        <span class="action-icon">↓</span>Receive
+      </button>
+      <button class="action-btn" id="btnBuy">
+        <span class="action-icon">🛒</span>Buy
+      </button>
+      <button class="action-btn" id="btnSwap">
+        <span class="action-icon">⇄</span>Swap
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: Send -->
+  <div class="modal-bg" id="modalSend">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>↑ Send $ALFP</h3>
+        <button class="modal-close" id="closeSend">✕</button>
+      </div>
+      <label>Anwani ya Mpokeaji</label>
+      <input id="sendTo" type="text" placeholder="0x…">
+      <label>Kiasi (ALFP)</label>
+      <input id="sendAmt" type="number" min="0" placeholder="0.00">
+      <div class="hint" id="sendBal"></div>
+      <div class="btn-row">
+        <button class="btn btn-gold" id="sendBtn">Tuma $ALFP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Receive -->
+  <div class="modal-bg" id="modalReceive">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>↓ Receive $ALFP</h3>
+        <button class="modal-close" id="closeReceive">✕</button>
+      </div>
+      <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
+      <div class="addr-box" id="receiveAddr">Unganisha wallet kwanza</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="copyAddrBtn">Nakili Anwani</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Buy -->
+  <div class="modal-bg" id="modalBuy">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>🛒 Buy $ALFP</h3>
+        <button class="modal-close" id="closeBuy">✕</button>
+      </div>
+      <p class="swap-hint">Nunua $ALFP kwenye PancakeSwap kwa kutumia BNB au token nyingine.</p>
+      <div class="btn-row">
+        <button class="btn btn-gold" id="gotoPancakeBuy">Fungua PancakeSwap ↗</button>
+      </div>
+      <p class="swap-hint" style="margin-top:8px;">Token Address:<br><span style="color:var(--gold-soft);font-family:'IBM Plex Mono',monospace;font-size:11px;">0xbED72920AE8Ad9e20D1BFBDAEF11D5ebC3c358E3</span></p>
+    </div>
+  </div>
+
+  <!-- MODAL: Swap -->
+  <div class="modal-bg" id="modalSwap">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>⇄ Swap $ALFP</h3>
+        <button class="modal-close" id="closeSwap">✕</button>
+      </div>
+      <p class="swap-hint">Badilisha $ALFP na token nyingine kwenye PancakeSwap.</p>
+      <div class="btn-row">
+        <button class="btn btn-gold" id="gotoPancakeSwap">Fungua PancakeSwap ↗</button>
+      </div>
+      <p class="swap-hint" style="margin-top:8px;">Dex nyingine zinazounga mkono BSC: ApeSwap, BiSwap.</p>
+      <div class="btn-row" style="gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost" id="gotoApeSwap">ApeSwap ↗</button>
+        <button class="btn btn-ghost" id="gotoBiSwap">BiSwap ↗</button>
+      </div>
+    </div>
   </div>
 
   <div class="tabs">
@@ -228,6 +352,7 @@ input:focus{border-color:var(--gold);}
   <div class="panel" id="panel-staking">
     <div class="card">
       <h3>Ledger ya Staking</h3>
+      <div class="row"><span class="k">Hali ya Mkataba</span><span class="v" id="stPaused">—</span></div>
       <div class="row"><span class="k">Kiasi Kilichowekwa</span><span class="v" id="stStaked">—</span></div>
       <div class="row"><span class="k">APR</span><span class="v" id="stApr">—</span></div>
       <div class="row"><span class="k">Malipo Yanayosubiri</span><span class="v" id="stPending">—</span></div>
@@ -350,7 +475,10 @@ const STAKING_ABI = [
   "function users(address) view returns (uint256 staked, uint256 lastTime, uint256 rewards)",
   "function apr() view returns (uint256)",
   "function referralRewards(address) view returns (uint256)",
-  "function token() view returns (address)"
+  "function token() view returns (address)",
+  "function paused() view returns (bool)",
+  "function ref(address) view returns (address)",
+  "function refRate() view returns (uint256)"
 ];
 const NFT_ABI = [
   "function mint(string uri)",
@@ -442,11 +570,14 @@ document.querySelectorAll('.tab').forEach(t=>{
 })();
 
 // ---- no injected wallet? offer deep links into MetaMask / Trust Wallet ----
+const isRealDomain = window.location.protocol === 'https:' && window.location.hostname !== '';
 if (!window.ethereum){
   $('noWalletHint').style.display = 'block';
-  $('deepLinkRow').style.display = 'flex';
   $('connectBtn').textContent = 'Wallet Haijagunduliwa';
   $('connectBtn').disabled = true;
+  if (isRealDomain){
+    $('deepLinkRow').style.display = 'flex';
+  }
 }
 $('mmDeepLink').addEventListener('click', ()=>{
   const bare = window.location.host + window.location.pathname + window.location.search;
@@ -511,6 +642,7 @@ async function connectWallet(){
     btn.textContent = '✓ Imeunganishwa';
     btn.style.background = 'linear-gradient(180deg,#85c48a,#4f9455)';
     btn.style.color = '#fff';
+    $('actionBtns').style.display = 'grid';
 
     await refreshAll();
     await verifyContracts();
@@ -547,9 +679,11 @@ async function refreshAll(){
   $('pbBnb').textContent = fmt(bnbBal, 18, 4) + ' BNB (gesi)';
 
   try{
-    const [u, pend, apr, refR] = await Promise.all([
-      cStake.users(userAddr), cStake.pending(userAddr), cStake.apr(), cStake.referralRewards(userAddr)
+    const [u, pend, apr, refR, isPaused] = await Promise.all([
+      cStake.users(userAddr), cStake.pending(userAddr), cStake.apr(), cStake.referralRewards(userAddr), cStake.paused()
     ]);
+    $('stPaused').textContent = isPaused ? '⏸ Imesimamishwa' : '✅ Inafanya Kazi';
+    $('stPaused').style.color = isPaused ? '#f0a79c' : '#74a07a';
     $('stStaked').textContent = fmt(u.staked, decimals, 2) + ' ALFP';
     $('stPending').textContent = fmt(pend, decimals, 4) + ' ALFP';
     $('stApr').textContent = apr.toString() + '%';
@@ -652,9 +786,36 @@ $('stakeBtn').addEventListener('click', async ()=>{
   const amtStr = $('stakeAmt').value;
   if (!amtStr || Number(amtStr) <= 0) return toast('Weka kiasi sahihi');
   const amount = ethers.parseUnits(amtStr, decimals);
+
+  // Check if paused
+  try{
+    const isPaused = await cStake.paused();
+    if (isPaused) return toast('⚠️ Mkataba wa Staking umesimamishwa (paused) — wasiliana na timu ya ALFPAY');
+  }catch(e){ console.warn('paused check failed', e); }
+
+  // Check ALFP balance
+  try{
+    const bal = await cToken.balanceOf(userAddr);
+    if (bal < amount) return toast('Salio la $ALFP haitoshi — una ' + fmt(bal, decimals, 2) + ' ALFP');
+  }catch(e){}
+
   let refAddr = $('stakeRef').value.trim();
-  if (!refAddr) refAddr = ethers.ZeroAddress;
-  await approveIfNeeded(ADDR.staking, amount, 'Staking');
+  if (!refAddr || !refAddr.startsWith('0x')) refAddr = ethers.ZeroAddress;
+
+  // Approve first
+  try{
+    const allowance = await cToken.allowance(userAddr, ADDR.staking);
+    if (allowance < amount){
+      toast('Inaidhinisha $ALFP kwa Staking…');
+      const appTx = await cToken.approve(ADDR.staking, amount);
+      log('Idhinisho limetumwa…', '', appTx.hash);
+      await appTx.wait();
+      log('Idhinisho limethibitishwa ✓', 'ok', appTx.hash);
+    }
+  }catch(e){
+    return toast('Idhinisho imeshindikana: ' + (e.reason || e.shortMessage || e.message));
+  }
+
   await runTx($('stakeBtn'), 'Stake', ()=>cStake.stake(amount, refAddr));
 });
 $('withdrawBtn').addEventListener('click', async ()=>{
@@ -734,6 +895,91 @@ $('switchBscBtn').addEventListener('click', async ()=>{
     toast(e.message || 'Imeshindikana kubadili mtandao');
   }
 });
+
+// ---- modal helpers ----
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+['Send','Receive','Buy','Swap'].forEach(n=>{
+  document.getElementById('close'+n).addEventListener('click',()=>closeModal('modal'+n));
+  document.getElementById('modal'+n).addEventListener('click', e=>{
+    if(e.target===e.currentTarget) closeModal('modal'+n);
+  });
+});
+
+// ---- action buttons ----
+$('btnSend').addEventListener('click', async ()=>{
+  if(!userAddr) return toast('Unganisha wallet kwanza');
+  const bal = await cToken.balanceOf(userAddr);
+  $('sendBal').textContent = 'Salio: ' + fmt(bal, decimals, 2) + ' ALFP';
+  openModal('modalSend');
+});
+$('btnReceive').addEventListener('click', ()=>{
+  if(!userAddr) return toast('Unganisha wallet kwanza');
+  $('receiveAddr').textContent = userAddr;
+  openModal('modalReceive');
+  // draw QR using canvas (no library needed)
+  drawQR(userAddr);
+});
+$('btnBuy').addEventListener('click', ()=>openModal('modalBuy'));
+$('btnSwap').addEventListener('click', ()=>openModal('modalSwap'));
+
+// ---- send ALFP ----
+$('sendBtn').addEventListener('click', async ()=>{
+  if(!userAddr) return toast('Unganisha wallet kwanza');
+  const to = $('sendTo').value.trim();
+  const amtStr = $('sendAmt').value;
+  if(!to || !to.startsWith('0x')) return toast('Weka anwani sahihi ya mpokeaji');
+  if(!amtStr || Number(amtStr) <= 0) return toast('Weka kiasi sahihi');
+  let toAddr;
+  try{ toAddr = ethers.getAddress(to); }catch(e){ return toast('Anwani si sahihi'); }
+  const amount = ethers.parseUnits(amtStr, decimals);
+  const bal = await cToken.balanceOf(userAddr);
+  if(bal < amount) return toast('Salio haitoshi');
+  closeModal('modalSend');
+  await runTx($('sendBtn'), 'Kutuma ALFP', ()=>cToken.transfer(toAddr, amount));
+});
+
+// ---- copy address ----
+$('copyAddrBtn').addEventListener('click', async ()=>{
+  try{
+    await navigator.clipboard.writeText(userAddr);
+    toast('Anwani imenakiliwa ✓');
+  }catch(e){
+    toast('Nakili anwani yako mwenyewe: ' + userAddr);
+  }
+});
+
+// ---- DEX links ----
+const ALFP_ADDR = '0xbED72920AE8Ad9e20D1BFBDAEF11D5ebC3c358E3';
+$('gotoPancakeBuy').addEventListener('click', ()=>
+  window.open('https://pancakeswap.finance/swap?outputCurrency='+ALFP_ADDR+'&chain=bsc','_blank'));
+$('gotoPancakeSwap').addEventListener('click', ()=>
+  window.open('https://pancakeswap.finance/swap?inputCurrency='+ALFP_ADDR+'&chain=bsc','_blank'));
+$('gotoApeSwap').addEventListener('click', ()=>
+  window.open('https://app.apeswap.finance/swap?outputCurrency='+ALFP_ADDR,'_blank'));
+$('gotoBiSwap').addEventListener('click', ()=>
+  window.open('https://exchange.biswap.org/swap?outputCurrency='+ALFP_ADDR,'_blank'));
+
+// ---- QR generator (pure canvas, no library) ----
+function drawQR(text){
+  const canvas = $('qrCanvas');
+  // Simple QR placeholder using a pattern — real QR via Google Charts API
+  const size = 166;
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = ()=>ctx.drawImage(img, 0, 0, size, size);
+  img.onerror = ()=>{
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#333';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Nakili anwani hapa chini', size/2, size/2);
+  };
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=166x166&data=' + encodeURIComponent(text);
+}
 
 $('connectBtn').addEventListener('click', connectWallet);
 
